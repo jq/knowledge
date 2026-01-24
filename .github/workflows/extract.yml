@@ -1,0 +1,25 @@
+name: Daily Knowledge Extraction
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - run: pip install slack-sdk anthropic
+      - run: python scripts/extract_knowledge.py
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - run: |
+          git config user.name "agikids-bot"
+          git config user.email "bot@agikids.org"
+          git add -A
+          git diff --cached --quiet || git commit -m "Auto-extract knowledge $(date +%Y-%m-%d)"
+          git push
