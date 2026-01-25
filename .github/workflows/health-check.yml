@@ -1,0 +1,41 @@
+name: Health Check
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch: {}
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.13' }
+      - name: Health check (attempt 1)
+        id: check1
+        continue-on-error: true
+        run: python scripts/health_check.py
+        env:
+          SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+      - name: Wait before retry
+        if: steps.check1.outcome == 'failure'
+        run: sleep 30
+      - name: Health check (attempt 2)
+        if: steps.check1.outcome == 'failure'
+        id: check2
+        continue-on-error: true
+        run: python scripts/health_check.py
+        env:
+          SLACK_SIGNING_SECRET: ${{ secrets.SLACK_SIGNING_SECRET }}
+      - name: Alert on failure
+        if: steps.check1.outcome == 'failure' && steps.check2.outcome == 'failure'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          ALERT_MSG: ":rotating_light: *AGI Kids Bot 健康检查失败*\n\nBot 端点无响应 (2次重试均失败)。\n请检查 Railway 部署状态。\n\n_GitHub Actions 自动告警_"
+        run: |
+          python3 -c "
+          import json, os, urllib.request
+          data = json.dumps({'channel': 'C0AA2F5EQ5S', 'text': os.environ['ALERT_MSG']}).encode()
+          req = urllib.request.Request('https://slack.com/api/chat.postMessage', data=data, headers={'Authorization': f\"Bearer {os.environ['SLACK_BOT_TOKEN']}\", 'Content-Type': 'application/json'})
+          urllib.request.urlopen(req, timeout=10)
+          print('Alert sent to Slack')
+          "
