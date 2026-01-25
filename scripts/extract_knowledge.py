@@ -207,7 +207,8 @@ def main() -> None:
     print("=== AGI Kids Knowledge Extraction ===")
 
     # 1. Fetch recent messages
-    messages = get_recent_messages(hours=24)
+    hours = int(os.environ.get("EXTRACT_HOURS", "24"))
+    messages = get_recent_messages(hours=hours)
     human_messages = [m for m in messages if m["user"] != BOT_USER_ID]
     print(f"Fetched {len(messages)} messages ({len(human_messages)} from humans)")
 
