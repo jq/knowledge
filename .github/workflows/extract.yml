@@ -17,9 +17,20 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      - run: |
+      - name: Commit extracted knowledge
+        run: |
           git config user.name "agikids-bot"
           git config user.email "bot@agikids.org"
           git add -A
           git diff --cached --quiet || git commit -m "Auto-extract knowledge $(date +%Y-%m-%d)"
           git push
+      - name: Trigger bot redeploy to load new knowledge
+        if: success()
+        run: |
+          curl -s -X POST \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"mutation { serviceInstanceRedeploy(environmentId: \"1c58f83c-89f6-45fe-b694-bdc577572c08\", serviceId: \"3fae3c85-b9f1-4f79-ba09-4f4583247c8f\") }"}' \
+            https://backboard.railway.app/graphql/v2
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
